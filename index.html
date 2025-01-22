@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>이차함수의 최대최소(합성함수)</title>
+  <!-- MathJax 로드 -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    defer
+  ></script>
+  <style>
+    /* 흑백 테마 */
+    body {
+      background-color: white;
+      color: black;
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    h1, h2, h3 {
+      margin: 0.5em 0;
+    }
+    .hidden {
+      display: none;
+    }
+    .center {
+      text-align: center;
+    }
+    .energy-bar-container {
+      width: 100%;
+      height: 20px;
+      background-color: #ccc;
+      margin: 10px 0;
+      position: relative;
+    }
+    .energy-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+      background-color: black;
+      transition: width 0.2s linear;
+    }
+    .question-container {
+      border: 1px solid #000;
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+    .choice-button {
+      background-color: white;
+      color: black;
+      border: 1px solid black;
+      padding: 5px 10px;
+      cursor: pointer;
+      margin: 3px 0;
+      display: block;
+      text-align: left;
+      width: 100%;
+      max-width: 400px;
+    }
+    .choice-button:hover {
+      background-color: #f0f0f0;
+    }
+    .info {
+      margin: 5px 0;
+    }
+    #response {
+      margin-top: 10px;
+      white-space: pre-wrap; 
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <h1>이차함수의 최대최소(합성함수)</h1>
+  <div id="startScreen">
+    <h3>이름을 입력하세요</h3>
+    <input type="text" id="playerName" placeholder="이름" />
+    <h3>난이도를 선택하세요</h3>
+    <label><input type="radio" name="difficulty" value="최상" /> 최상 (20초)</label><br/>
+    <label><input type="radio" name="difficulty" value="상" /> 상 (30초)</label><br/>
+    <label><input type="radio" name="difficulty" value="중" /> 중 (40초)</label><br/>
+    <label><input type="radio" name="difficulty" value="하" /> 하 (시간제한 없음)</label><br/><br/>
+    <button onclick="startGame()">게임 시작</button>
+  </div>
+
+  <div id="gameScreen" class="hidden">
+    <div class="info">남은 기회: <span id="lives">3</span></div>
+    <div class="info">현재 점수: <span id="score">0</span></div>
+    <div class="info">전체 플레이 시간: <span id="totalTime">0</span>초</div>
+    <div id="energyBarContainer" class="energy-bar-container hidden">
+      <div id="energyBar" class="energy-bar"></div>
+    </div>
+    <div id="questionArea"></div>
+  </div>
+
+  <div id="endScreen" class="hidden">
+    <h2>게임 종료</h2>
+    <div>최종 점수: <span id="finalScore"></span></div>
+    <button onclick="sendScore()">점수 전송</button>
+    <div id="response"></div>
+  </div>
+
+  <script>
+    /***************************************************************
+     * (1) 문제 데이터 (번호는 생략, 문제는 무작위로 섞어 출제)
+     *    - 각 객체: { statement: "...", choices: [...], correct: 0 }
+     ***************************************************************/
+    const allQuestions = [
+      {
+        // #9
+        statement: "다음 함수의 \\(\\text{최솟값}\\)을 구하여라.<br/>\\(y = (x^2 + 4x)^2 - 2(x^2 + 4x) - 6\\)",
+        choices: [
+          "\\(-8\\)",
+          "\\(-7\\)",
+          "\\(-6\\)",
+          "\\(-5\\)",
+        ],
+        correct: 1  // -7
+      },
+      {
+        // #8
+        statement: "다음 함수의 \\(\\text{최댓값}\\)을 구하여라.<br/>\\(y = -(x^2 - 2x + 3)^2 + 6(x^2 - 2x) - 5\\)",
+        choices: [
+          "\\(-14\\)",
+          "\\(-15\\)",
+          "\\(-16\\)",
+          "\\(-17\\)",
+        ],
+        correct: 0  // -14
+      },
+      {
+        // #6
+        statement: "다음 함수의 \\(\\text{최댓값}\\)을 구하여라.<br/>\\(y = -(x^2 + 2x + 2)^2 - 4(x^2 + 2x) + 1\\)",
+        choices: [
+          "3",
+          "4",
+          "5",
+          "6",
+        ],
+        correct: 1  // 4
+      },
+      {
+        // #5
+        statement: "다음 함수의 \\(\\text{최댓값}\\)을 구하여라.<br/>\\(y = -(x^2 + 2x - 1)^2 - 2(x^2 + 2x) + 5\\)",
+        choices: [
+          "3",
+          "4",
+          "5",
+          "6",
+        ],
+        correct: 1  // 4
+      },
+      {
+        // #7
+        statement: "다음 함수의 \\(\\text{최댓값}\\)을 구하여라.<br/>\\(y = -(x^2 - 4x + 5)^2 + 4(x^2 - 4x) + 20\\)",
+        choices: [
+          "2",
+          "3",
+          "4",
+          "5",
+        ],
+        correct: 1  // 3
+      },
+      {
+        // #10
+        statement: "다음 함수의 \\(\\text{최솟값}\\)을 구하여라.<br/>\\(y = (x^2 - 2x + 3)^2 - 6(x^2 - 2x + 3) - 1\\)",
+        choices: [
+          "\\(-9\\)",
+          "\\(-10\\)",
+          "\\(-11\\)",
+          "\\(-12\\)",
+        ],
+        correct: 1  // -10
+      },
+      {
+        // #11
+        statement: "다음 함수의 \\(\\text{최솟값}\\)을 구하여라.<br/>\\(y = (x^2 - 6x + 3)^2 - 4(x^2 - 6x) + 10\\)",
+        choices: [
+          "18",
+          "19",
+          "20",
+          "21",
+        ],
+        correct: 0  // 18
+      },
+      {
+        // #12
+        statement: "다음 함수의 \\(\\text{최솟값}\\)을 구하여라.<br/>\\(y = (x^2 - 6x + 7)^2 + 2(x^2 - 6x + 1) + 1\\)",
+        choices: [
+          "\\(-14\\)",
+          "\\(-13\\)",
+          "\\(-12\\)",
+          "\\(-11\\)",
+        ],
+        correct: 2  // -12
+      },
+      {
+        // #13
+        statement: "\\(-2 \\le x \\le 2\\)에서<br/>\\(y = (x^2 - 2x)^2 - 4(x^2 - 2x) + 1\\) 의 최댓값과 최솟값을 구하여라.",
+        choices: [
+          "(가) 33, (나) -3",
+          "(가) 6, (나) -3",
+          "(가) 33, (나) -2",
+          "(가) 6, (나) -2"
+        ],
+        correct: 0  // (가) 33, (나) -3
+      },
+      {
+        // #14
+        statement: "\\(2 \\le x \\le 4\\)에서<br/>\\(y = (x^2 - 2x - 1)^2 + 4(x^2 - 2x - 1) + 3\\) 의 최댓값과 최솟값을 구하여라.",
+        choices: [
+          "(가) 80, (나) 0",
+          "(가) 81, (나) 0",
+          "(가) 80, (나) -1",
+          "(가) 81, (나) -1"
+        ],
+        correct: 0  // (가) 80, (나) 0
+      },
+      {
+        // #15
+        statement: "\\(0 \\le x \\le 3\\)에서<br/>\\(y = (x^2 - 4x + 3)^2 - 2(x^2 - 4x + 3) + 5\\) 의 최댓값과 최솇값을 구하여라.",
+        choices: [
+          "(가) 8, (나) 4",
+          "(가) 9, (나) 4",
+          "(가) 8, (나) 3",
+          "(가) 9, (나) 3"
+        ],
+        correct: 0  // (가)8, (나)4
+      },
+      {
+        // #16
+        statement: "\\(-1 \\le x \\le 2\\)에서<br/>\\(y = -(x^2 - 2x + 2)^2 + 4(x^2 - 2x + 2) + 1\\) 의 최댓값과 최솇값을 구하여라.",
+        choices: [
+          "(가) 5, (나) -4",
+          "(가) 4, (나) -3",
+          "(가) 5, (나) -3",
+          "(가) 4, (나) -4"
+        ],
+        correct: 0  // (가)5, (나)-4
+      },
+      {
+        // #18
+        statement: "두 실수 \\(x,y\\)에 대하여<br/>\\(2x + y = 2[x^2 + y^2]\\)가 성립할 때,<br/>\\([x^2 + y^2]\\)의 최솟값을 구하여라.",
+        choices: [
+          "0",
+          "\\(\\dfrac{5}{16}\\)",
+          "\\(\\dfrac{\\sqrt{5}}{4}\\)",
+          "1"
+        ],
+        correct: 0  // 0
+      },
+      {
+        // #19
+        statement: "두 실수 \\(x,y\\)에 대하여<br/>\\(2x - y = 10[x^2 + y^2]\\)가 성립할 때,<br/>\\([x^2 + y^2]\\)의 최솟값을 구하여라.",
+        choices: [
+          "0",
+          "\\(\\dfrac{1}{80}\\)",
+          "\\(\\dfrac{1}{4\\sqrt{5}}\\)",
+          "1"
+        ],
+        correct: 0  // 0
+      }
+    ];
+
+    /***************************************************************
+     * 전역 변수들 
+     ***************************************************************/
+    let currentIndex = 0;          // 현재 문제 인덱스
+    let questionsOrder = [];       // 문제 순서를 담을 배열(처음에 셔플)
+    let score = 0;                // 누적 점수
+    let lives = 3;                // 남은 기회
+    let selectedDifficulty = null; // 난이도
+    let perQuestionTime = 0;       // 난이도별 제한시간(초)
+    let perQuestionScore = 0;      // 난이도별 문제당 점수
+    let totalSeconds = 0;          // 전체 게임 시간(초)
+    let timerInterval = null;      // 전체 게임시간 측정용
+    let questionTimer = null;      // 문제별 에너지바 갱신용
+    let nameInput = "";            // 플레이어 이름
+
+    /***************************************************************
+     * 난이도 설정에 따른 시간/점수 세팅
+     ***************************************************************/
+    function setDifficultyValues() {
+      switch (selectedDifficulty) {
+        case "최상":
+          perQuestionTime = 20;
+          perQuestionScore = 20;
+          break;
+        case "상":
+          perQuestionTime = 30;
+          perQuestionScore = 15;
+          break;
+        case "중":
+          perQuestionTime = 40;
+          perQuestionScore = 13;
+          break;
+        case "하":
+          // 시간 제한 없음
+          perQuestionTime = 0;
+          perQuestionScore = 10;
+          break;
+      }
+    }
+
+    /***************************************************************
+     * shuffleArray - 배열 무작위 셔플
+     ***************************************************************/
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    /***************************************************************
+     * 게임 시작(첫 화면 → 문제화면)
+     ***************************************************************/
+    function startGame() {
+      const radios = document.getElementsByName("difficulty");
+      let checkedValue = null;
+      for (let r of radios) {
+        if (r.checked) {
+          checkedValue = r.value;
+          break;
+        }
+      }
+      nameInput = document.getElementById("playerName").value.trim();
+      if (!nameInput) {
+        alert("이름을 입력해주세요.");
+        return;
+      }
+      if (!checkedValue) {
+        alert("난이도를 선택해주세요.");
+        return;
+      }
+      selectedDifficulty = checkedValue;
+      setDifficultyValues();
+
+      // 문제 순서 셔플
+      questionsOrder = shuffleArray([...Array(allQuestions.length).keys()]);
+      currentIndex = 0;
+      score = 0;
+      lives = 3;
+      totalSeconds = 0;
+
+      document.getElementById("startScreen").classList.add("hidden");
+      document.getElementById("gameScreen").classList.remove("hidden");
+      document.getElementById("endScreen").classList.add("hidden");
+
+      document.getElementById("lives").textContent = lives;
+      document.getElementById("score").textContent = score;
+      document.getElementById("totalTime").textContent = totalSeconds;
+
+      // 전체 게임 시간 카운트 시작
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        totalSeconds++;
+        document.getElementById("totalTime").textContent = totalSeconds;
+      }, 1000);
+
+      // 첫 문제 표시
+      showQuestion();
+    }
+
+    /***************************************************************
+     * 문제 표시
+     ***************************************************************/
+    function showQuestion() {
+      // 문제를 모두 소진했다면 => 이후 무한랜덤 모드
+      // (처음 allQuestions.length 문제를 다 낸 뒤엔, 끝없이 랜덤)
+      let qIndex;
+      if (currentIndex < allQuestions.length) {
+        qIndex = questionsOrder[currentIndex];
+      } else {
+        // 무한 반복 모드: 아무거나 랜덤
+        qIndex = Math.floor(Math.random()*allQuestions.length);
+      }
+
+      const qData = allQuestions[qIndex];
+      // 보기도 섞어서 보여주기
+      const choiceIndices = shuffleArray([0,1,2,3]);
+      
+      // 문제 영역 구성
+      const questionArea = document.getElementById("questionArea");
+      questionArea.innerHTML = `
+        <div class="question-container">
+          <div class="question-statement">${qData.statement}</div>
+          <div id="choicesArea"></div>
+        </div>
+      `;
+
+      const choicesArea = questionArea.querySelector("#choicesArea");
+      choiceIndices.forEach((ci) => {
+        const btn = document.createElement("button");
+        btn.className = "choice-button";
+        btn.innerHTML = qData.choices[ci];
+        btn.onclick = () => checkAnswer(qIndex, ci);
+        choicesArea.appendChild(btn);
+      });
+
+      // MathJax 렌더링 (동적 수식 적용)
+      MathJax.typeset();
+
+      // 에너지바 (난이도가 '하'가 아니면 표시)
+      const energyBarContainer = document.getElementById("energyBarContainer");
+      const energyBar = document.getElementById("energyBar");
+      if (perQuestionTime > 0) {
+        energyBarContainer.classList.remove("hidden");
+        // 초기 에너지바 100%
+        energyBar.style.width = "100%";
+
+        // 기존 타이머 제거
+        if (questionTimer) clearInterval(questionTimer);
+
+        let timeLeft = perQuestionTime;
+        let intervalMs = 200; // 0.2초 간격으로 bar 줄이기
+        let totalCount = (perQuestionTime * 1000) / intervalMs; 
+        let count = 0;
+
+        questionTimer = setInterval(() => {
+          count++;
+          let ratio = count / totalCount;
+          if (ratio >= 1) {
+            // 시간 초과
+            clearInterval(questionTimer);
+            energyBar.style.width = "0%";
+            timeOutHandler();
+          } else {
+            let barWidth = (1 - ratio) * 100; 
+            energyBar.style.width = barWidth + "%";
+          }
+        }, intervalMs);
+      } else {
+        // 난이도 '하'인 경우 시간제한 X
+        energyBarContainer.classList.add("hidden");
+      }
+    }
+
+    /***************************************************************
+     * 시간 초과 시 처리
+     ***************************************************************/
+    function timeOutHandler() {
+      // 기회 1 차감
+      lives--;
+      document.getElementById("lives").textContent = lives;
+      if (lives <= 0) {
+        endGame();
+        return;
+      }
+      // 다음 문제로 넘어감
+      currentIndex++;
+      showQuestion();
+    }
+
+    /***************************************************************
+     * 정답 체크
+     ***************************************************************/
+    function checkAnswer(questionRealIndex, chosenIndex) {
+      // 문제 데이터
+      const qData = allQuestions[questionRealIndex];
+
+      // 문제 타이머 제거
+      if (questionTimer) clearInterval(questionTimer);
+
+      // 정답 여부
+      const correctIndex = qData.correct;
+      if (chosenIndex === correctIndex) {
+        // 정답
+        score += perQuestionScore;
+        document.getElementById("score").textContent = score;
+      } else {
+        // 오답 => 기회-1, 정답 표시
+        alert("틀렸습니다!\n정답은: " + qData.choices[correctIndex]);
+        lives--;
+        document.getElementById("lives").textContent = lives;
+        if (lives <= 0) {
+          endGame();
+          return;
+        }
+      }
+
+      // 다음 문제
+      currentIndex++;
+      showQuestion();
+    }
+
+    /***************************************************************
+     * 게임 종료
+     ***************************************************************/
+    function endGame() {
+      // 모든 타이머 제거
+      if (timerInterval) clearInterval(timerInterval);
+      if (questionTimer) clearInterval(questionTimer);
+
+      // 화면 전환
+      document.getElementById("gameScreen").classList.add("hidden");
+      document.getElementById("endScreen").classList.remove("hidden");
+
+      // 최종 점수 출력
+      document.getElementById("finalScore").textContent = score;
+    }
+
+    /***************************************************************
+     * 점수 전송
+     ***************************************************************/
+    function sendScore() {
+      // game, name, score, elapsedTime
+      const gameName = "이차함수의 최대최소(합성함수)";
+      const playerName = nameInput;
+      const finalScore = score;
+      const elapsedTime = totalSeconds;
+
+      saveData(gameName, playerName, finalScore, elapsedTime);
+    }
+
+
+    /***************************************************************
+     * 서버로 요청 보내는 함수 (문제에서 주어진 코드)
+     ***************************************************************/
+    async function saveData(game, name, score, elapsedTime) {
+      const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+      const requestData = {
+        game,
+        name,
+        score: parseInt(score, 10),
+        elapsedTime: parseInt(elapsedTime, 10)
+      };
+
+      try {
+        const response = await fetch(FUNCTION_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestData)
+        });
+
+        const responseData = await response.json();
+        if (response.ok) {
+          document.getElementById('response').innerText =
+            "성공: " + JSON.stringify(responseData, null, 2);
+        } else {
+          document.getElementById('response').innerText =
+            "오류: " + JSON.stringify(responseData, null, 2);
+        }
+      } catch (error) {
+        console.error("요청 실패:", error);
+        document.getElementById('response').innerText =
+          "네트워크 오류: " + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
